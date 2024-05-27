@@ -58,7 +58,88 @@ impl StateMachine for Atm {
     type Transition = Action;
 
     fn next_state(starting_state: &Self::State, t: &Self::Transition) -> Self::State {
-        todo!("Exercise 4")
+        let default_state = starting_state.clone();
+        let mut keystore_register = starting_state.keystroke_register.clone();
+
+        match t {
+            Action::SwipeCard(hash) => match &starting_state.expected_pin_hash {
+                Auth::Waiting => Atm {
+                    expected_pin_hash: Auth::Authenticating(*hash),
+                    keystroke_register: Vec::new(),
+                    cash_inside: starting_state.cash_inside,
+                },
+                _ => default_state,
+            },
+            Action::PressKey(key) => match &starting_state.expected_pin_hash {
+                Auth::Waiting => default_state,
+                Auth::Authenticating(pin_hash) => {
+                    match key {
+                        Key::Enter => {
+                            if crate::hash(&keystore_register) == *pin_hash {
+                                Atm {
+                                    expected_pin_hash: Auth::Authenticated,
+                                    keystroke_register: Vec::new(),
+                                    cash_inside: starting_state.cash_inside,
+                                }
+                            } else {
+                                Atm {
+                                    expected_pin_hash: Auth::Waiting,
+                                    keystroke_register: Vec::new(),
+                                    cash_inside: starting_state.cash_inside,
+                                }
+                            }
+                        }
+                        _ => {
+                            keystore_register.push(key.clone());
+                            Atm {
+                                expected_pin_hash: Auth::Authenticating(*pin_hash),
+                                keystroke_register: keystore_register,
+                                cash_inside: starting_state.cash_inside,
+                            }
+                        }
+                    }
+                }
+                Auth::Authenticated => {
+                    let mut amount = 0;
+                    match key {
+                        Key::Enter => {
+                            for key in keystore_register.iter() {
+                                amount = amount * 10
+                                    + match key {
+                                        Key::One => 1,
+                                        Key::Two => 2,
+                                        Key::Three => 3,
+                                        Key::Four => 4,
+                                        _ => 0,
+                                    };
+                            }
+
+                            if amount > starting_state.cash_inside {
+                                Atm {
+                                    expected_pin_hash: Auth::Waiting,
+                                    keystroke_register: Vec::new(),
+                                    cash_inside: starting_state.cash_inside,
+                                }
+                            } else {
+                                Atm {
+                                    expected_pin_hash: Auth::Waiting,
+                                    keystroke_register: Vec::new(),
+                                    cash_inside: starting_state.cash_inside - amount,
+                                }
+                            }
+                        }
+                        _ => {
+                            keystore_register.push(key.clone());
+                            Atm {
+                                expected_pin_hash: Auth::Authenticated,
+                                keystroke_register: keystore_register,
+                                cash_inside: starting_state.cash_inside,
+                            }
+                        }
+                    }
+                }
+            },
+        }
     }
 }
 
