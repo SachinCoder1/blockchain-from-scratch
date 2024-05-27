@@ -23,7 +23,7 @@ pub trait StateMachine {
     /// programs such as the repl described below. This is not in any way related to
     /// the correctness of the state machine.
     fn human_name() -> String {
-        "Unnamed state machine".into()
+        "Sachin State Machine".into()
     }
 }
 
